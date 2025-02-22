@@ -1,0 +1,135 @@
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Document Q&A System</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.7/axios.min.js"></script>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-gray-100 min-h-screen">
+        <div class="container mx-auto px-4 py-8 max-w-4xl">
+            <h1 class="text-3xl font-bold mb-8 text-center">Document Q&A System</h1>
+            
+            <!-- File Upload Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold mb-4">Upload Document</h2>
+                <form id="uploadForm" class="space-y-4">
+                    <div class="flex items-center justify-center w-full">
+                        <label class="flex flex-col w-full h-32 border-4 border-dashed hover:bg-gray-100 hover:border-gray-300">
+                            <div class="flex flex-col items-center justify-center pt-7">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-gray-400 group-hover:text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                                </svg>
+                                <p class="pt-1 text-sm tracking-wider text-gray-400 group-hover:text-gray-600">
+                                    Select a file
+                                </p>
+                            </div>
+                            <input type="file" class="opacity-0" accept=".pdf,.txt" id="fileInput" />
+                        </label>
+                    </div>
+                    <div id="uploadStatus" class="text-center text-sm text-gray-500"></div>
+                </form>
+            </div>
+
+            <!-- Q&A Section -->
+            <div id="qaSection" class="bg-white rounded-lg shadow-md p-6 hidden">
+                <h2 class="text-xl font-semibold mb-4">Ask Questions</h2>
+                <form id="questionForm" class="space-y-4">
+                    <div>
+                        <input type="text" id="questionInput" 
+                            class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Ask a question about the document...">
+                    </div>
+                    <button type="submit" 
+                            class="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors">
+                        Ask Question
+                    </button>
+                </form>
+                
+                <!-- Chat History -->
+                <div id="chatHistory" class="mt-6 space-y-4">
+                    <!-- Messages will be dynamically added here -->
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let currentDocId = null;
+            let context = null;
+            const chatHistory = [];
+
+            // Handle file upload
+            document.getElementById('fileInput').addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const uploadStatus = document.getElementById('uploadStatus');
+                uploadStatus.textContent = 'Uploading and processing document...';
+
+                try {
+                    const response = await axios.post('/upload', formData);
+                    currentDocId = response.data.doc_id;
+                    context = response.data.context;
+                    uploadStatus.textContent = 'Document processed successfully!';
+                    document.getElementById('qaSection').classList.remove('hidden');
+                } catch (error) {
+                    uploadStatus.textContent = `Error: ${error.response?.data?.error || 'Failed to process document'}`;
+                }
+            });
+
+            // Handle question submission
+            document.getElementById('questionForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                console.log("Button clicked!");
+                
+                const questionInput = document.getElementById('questionInput');
+                const question = questionInput.value.trim();
+                
+                if (!question) {
+                    console.log("error occured");
+                    return;   
+                }
+
+                // Add question to chat history
+                addMessageToChat('user', question);
+                questionInput.value = '';
+
+                try {
+                    const response = await axios.post('/ask', {
+                        question,
+                        context: context,
+                        doc_id: currentDocId,
+                        chat_history: chatHistory
+                    });
+
+                    // Add answer to chat history
+                    addMessageToChat('assistant', response.data.answer);
+                    
+                    // Update chat history for context
+                    chatHistory.push([question, response.data.answer]);
+                } 
+                catch (error) {
+                    addMessageToChat('error', `Error: ${error.response?.data?.error || 'Failed to get answer'}`);
+                }
+            });
+
+            function addMessageToChat(role, content) {
+                const chatHistory = document.getElementById('chatHistory');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `p-4 rounded-lg ${
+                    role === 'user' ? 'bg-blue-100 ml-12' :
+                    role === 'assistant' ? 'bg-gray-100 mr-12' :
+                    'bg-red-100'
+                }`;
+                messageDiv.textContent = content;
+                chatHistory.appendChild(messageDiv);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+        </script>
+    </body>
+    </html>
