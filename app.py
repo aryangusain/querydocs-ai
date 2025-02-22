@@ -12,6 +12,8 @@ genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
 model = genai.GenerativeModel('gemini-1.5-flash')
 
+os.makedirs("uploads", exist_ok=True)
+
 # Function to extract text from PDF
 def extract_text_from_pdf(pdf_path):
     text = ""
